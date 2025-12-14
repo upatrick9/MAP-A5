@@ -95,7 +95,6 @@ public class Controller implements IController{
 
         prgList.addAll(newPrgList);
 
-        // conservative GC (single shared heap, multiple symTables)
         if (!prgList.isEmpty()) {
             MyIHeap<Value> heap = prgList.getFirst().getHeap();
             List<Integer> symTableAddr = prgList.stream()
