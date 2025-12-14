@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Repository implements IRepository {
-    private final List<PrgState> prgList = new ArrayList<>();
+    private List<PrgState> prgList = new ArrayList<>();
 
     private final String logFilePath;
 
@@ -23,15 +23,22 @@ public class Repository implements IRepository {
     }
 
     @Override
-    public PrgState getCurrentProgram() {
-        return prgList.getFirst();
+    public List<PrgState> getPrgList() {
+        return prgList;
     }
 
     @Override
-    public void logPrgStateExec() throws MyException {
-        PrgState prg = getCurrentProgram();
+    public void setPrgList(List<PrgState> prgList) {
+        this.prgList = prgList;
+    }
+
+    @Override
+    public void logPrgStateExec(PrgState prg) throws MyException {
         try (PrintWriter logFile =
                      new PrintWriter(new BufferedWriter(new FileWriter(logFilePath, true)))) {
+
+            logFile.println("Id:");
+            logFile.println(prg.getId());
 
             logFile.println("ExeStack:");
             logFile.println(prg.getExeStack().toString());

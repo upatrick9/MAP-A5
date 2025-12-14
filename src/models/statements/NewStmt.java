@@ -42,7 +42,7 @@ public class NewStmt implements IStmt{
         }
         int addr = heap.allocate(evalResult);
         symTable.update(varName, new RefValue(addr, locationType));
-        return prgState;
+        return null;
     }
 
     @Override

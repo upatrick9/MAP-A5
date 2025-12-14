@@ -3,8 +3,12 @@ package repository;
 import models.PrgState;
 import models.exceptions.*;
 
-public interface IRepository {
-    PrgState getCurrentProgram();
+import java.util.List;
 
-    void logPrgStateExec() throws MyException;
+public interface IRepository {
+
+    void logPrgStateExec(PrgState prg) throws MyException;
+
+    List<PrgState> getPrgList();
+    void setPrgList(List<PrgState> prgList);
 }

@@ -1,13 +1,13 @@
 package view.command;
 
-import controller.Controller;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Scanner;
 
 public class SetDisplayCommand extends Command {
-    private final Controller controller;
-    public SetDisplayCommand(String key, String desc, Controller controller){
+    private final AtomicBoolean displayFlag;
+    public SetDisplayCommand(String key, String desc, AtomicBoolean displayFlag){
         super(key, desc);
-        this.controller = controller;
+        this.displayFlag = displayFlag;
     }
     @Override
     public void execute() {
@@ -17,16 +17,16 @@ public class SetDisplayCommand extends Command {
         int option = sc.nextInt();
         switch (option) {
             case 1-> {
-                controller.setDisplayFlag(true);
+                displayFlag.set(true);
                 System.out.println("Display is on");
             }
             case 2-> {
-                controller.setDisplayFlag(false);
+                displayFlag.set(false);
                 System.out.println("Display is off");
             }
             default->{
                 System.out.println("Invalid option");
-                controller.setDisplayFlag(false);
+                displayFlag.set(false);
             }
         }
     }

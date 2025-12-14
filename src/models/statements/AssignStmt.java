@@ -32,7 +32,7 @@ public class AssignStmt implements IStmt{
             throw new TypeMismatch(id);
 
         symTable.update(id, val);
-        return state;
+        return null;
     }
 
     @Override

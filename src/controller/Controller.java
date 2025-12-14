@@ -2,21 +2,21 @@ package controller;
 
 import models.PrgState;
 import models.adts.MyIHeap;
-import models.adts.MyIStack;
-import models.adts.MyStack;
 import models.exceptions.*;
-import models.statements.IStmt;
 import models.values.Value;
 import models.values.RefValue;
 import repository.IRepository;
 
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class Controller implements IController{
     private final IRepository repo;
 
     private boolean displayFlag = false;
+
+    private ExecutorService executor;
 
     public Controller(IRepository repo) {
         this.repo = repo;
@@ -58,35 +58,76 @@ public class Controller implements IController{
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    @Override
-    public PrgState oneStep(PrgState state) throws MyException{
-        MyIStack<IStmt> stack = state.getExeStack();
-        if(stack.isEmpty()){
-            throw new EmptyStack();
+    public List<PrgState> removeCompletedPrg(List<PrgState> inPrgList){
+        return inPrgList.stream()
+                .filter(PrgState::isNotCompleted)
+                .collect(Collectors.toList());
+    }
+
+
+
+    private void oneStepForAllPrg(List<PrgState> prgList) {
+        prgList.forEach(prg -> repo.logPrgStateExec(prg));
+
+        List<Callable<PrgState>> callList = prgList.stream()
+                .map((PrgState p) -> (Callable<PrgState>) p::oneStep)
+                .collect(Collectors.toList());
+
+        List<PrgState> newPrgList;
+        try {
+            newPrgList = executor.invokeAll(callList).stream()
+                    .map(future -> {
+                        try {
+                            return future.get();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new MyException("Interrupted: " + e.getMessage());
+                        } catch (ExecutionException e) {
+                            throw new MyException("Execution error: " + e.getCause().getMessage());
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new MyException("Interrupted while invoking all: " + e.getMessage());
         }
-        IStmt stmt = stack.pop();
-        return stmt.execute(state);
+
+        prgList.addAll(newPrgList);
+
+        // conservative GC (single shared heap, multiple symTables)
+        if (!prgList.isEmpty()) {
+            MyIHeap<Value> heap = prgList.getFirst().getHeap();
+            List<Integer> symTableAddr = prgList.stream()
+                    .flatMap(p -> getAddrFromSymTable(p.getSymTable().getContent().values()).stream())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            heap.setContent(safeGarbageCollector(symTableAddr, heap.getContent()));
+        }
+
+        prgList.forEach(prg -> repo.logPrgStateExec(prg));
+
+        if (displayFlag) {
+            prgList.forEach(System.out::println);
+        }
+
+        repo.setPrgList(prgList);
     }
 
     @Override
-    public void allStep() throws MyException{
-        PrgState prg = repo.getCurrentProgram();
+    public void allStep() throws MyException {
+        executor = Executors.newFixedThreadPool(2);
 
-        repo.logPrgStateExec();
-        while(!prg.getExeStack().isEmpty()){
-            oneStep(prg);
-            repo.logPrgStateExec();
-
-            MyIHeap<Value> heap = prg.getHeap();
-            List<Integer> symTableAddr = getAddrFromSymTable(prg.getSymTable().getContent().values());
-            Map<Integer, Value> newHeapContent = safeGarbageCollector(symTableAddr, heap.getContent());
-            heap.setContent(newHeapContent);
-
-            repo.logPrgStateExec();
-            if(displayFlag) {
-                System.out.println(prg);
-            }
+        List<PrgState> prgList = removeCompletedPrg(repo.getPrgList());
+        while (!prgList.isEmpty()) {
+            oneStepForAllPrg(prgList);
+            prgList = removeCompletedPrg(repo.getPrgList());
         }
+
+        executor.shutdownNow();
+
+        repo.setPrgList(prgList);
     }
 
 }
